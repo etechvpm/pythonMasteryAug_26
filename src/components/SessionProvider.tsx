@@ -16,6 +16,10 @@ type SessionContextValue = {
 
 const SessionContext = createContext<SessionContextValue | null>(null);
 
+let cachedStudentRaw: string | null | undefined;
+let cachedStudent: StudentProfile | null = null;
+let cachedPin: string | null | undefined;
+
 function subscribe(onStoreChange: () => void) {
   if (typeof window === "undefined") return () => undefined;
   const handler = () => onStoreChange();
@@ -31,27 +35,33 @@ function readStudent(): StudentProfile | null {
   if (typeof window === "undefined") return null;
   try {
     const raw = localStorage.getItem(KEY);
-    return raw ? (JSON.parse(raw) as StudentProfile) : null;
+    if (raw === cachedStudentRaw) return cachedStudent;
+    cachedStudentRaw = raw;
+    cachedStudent = raw ? (JSON.parse(raw) as StudentProfile) : null;
+    return cachedStudent;
   } catch {
+    cachedStudentRaw = null;
+    cachedStudent = null;
     return null;
   }
 }
 
 function readPin(): string | null {
   if (typeof window === "undefined") return null;
-  return localStorage.getItem(PIN_KEY);
+  const pin = localStorage.getItem(PIN_KEY);
+  if (pin === cachedPin) return cachedPin ?? null;
+  cachedPin = pin;
+  return pin;
 }
 
 function emit() {
   window.dispatchEvent(new Event("pylab-session"));
 }
 
+const emptySubscribe = () => () => undefined;
+
 function useIsClient() {
-  return useSyncExternalStore(
-    () => () => undefined,
-    () => true,
-    () => false
-  );
+  return useSyncExternalStore(emptySubscribe, () => true, () => false);
 }
 
 export function SessionProvider({ children }: { children: ReactNode }) {
@@ -62,12 +72,15 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const setStudent = (s: StudentProfile | null) => {
     if (s) localStorage.setItem(KEY, JSON.stringify(s));
     else localStorage.removeItem(KEY);
+    cachedStudentRaw = undefined;
+    cachedStudent = null;
     emit();
   };
 
   const setInstructorPin = (pin: string | null) => {
     if (pin) localStorage.setItem(PIN_KEY, pin);
     else localStorage.removeItem(PIN_KEY);
+    cachedPin = undefined;
     emit();
   };
 
