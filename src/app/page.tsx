@@ -9,7 +9,7 @@ export default function HomePage() {
     <main className="relative flex flex-1 flex-col">
       <section className="relative mx-auto flex min-h-[calc(100dvh-4rem)] w-full max-w-6xl flex-col justify-center px-4 pb-16 pt-10 sm:px-6 sm:pb-24 sm:pt-14">
         <motion.div
-          initial={{ opacity: 0, y: 18 }}
+          initial={{ opacity: 0.01, y: 18 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
           className="max-w-3xl"

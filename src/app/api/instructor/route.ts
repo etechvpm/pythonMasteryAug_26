@@ -42,13 +42,17 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  if (!checkPin(request)) return unauthorized();
-  const body = (await request.json()) as { action?: string; pin?: string; assessment?: Partial<Assessment> };
+  const body = (await request.json()) as {
+    action?: string;
+    pin?: string;
+    assessment?: Partial<Assessment>;
+  };
 
   if (body.action === "verify") {
-    const ok = body.pin === INSTRUCTOR_PIN;
-    return NextResponse.json({ ok });
+    return NextResponse.json({ ok: body.pin === INSTRUCTOR_PIN });
   }
+
+  if (!checkPin(request)) return unauthorized();
 
   if (body.action === "toggle" && body.assessment?.id) {
     const all = await readAssessments();
