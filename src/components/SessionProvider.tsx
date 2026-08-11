@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useContext, useSyncExternalStore, type ReactNode } from "react";
 import type { StudentProfile } from "@/lib/types";
 
 const KEY = "pylab-student";
@@ -16,33 +16,59 @@ type SessionContextValue = {
 
 const SessionContext = createContext<SessionContextValue | null>(null);
 
-export function SessionProvider({ children }: { children: ReactNode }) {
-  const [student, setStudentState] = useState<StudentProfile | null>(null);
-  const [instructorPin, setPinState] = useState<string | null>(null);
-  const [ready, setReady] = useState(false);
+function subscribe(onStoreChange: () => void) {
+  if (typeof window === "undefined") return () => undefined;
+  const handler = () => onStoreChange();
+  window.addEventListener("storage", handler);
+  window.addEventListener("pylab-session", handler);
+  return () => {
+    window.removeEventListener("storage", handler);
+    window.removeEventListener("pylab-session", handler);
+  };
+}
 
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(KEY);
-      if (raw) setStudentState(JSON.parse(raw) as StudentProfile);
-      const pin = localStorage.getItem(PIN_KEY);
-      if (pin) setPinState(pin);
-    } catch {
-      /* ignore */
-    }
-    setReady(true);
-  }, []);
+function readStudent(): StudentProfile | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(KEY);
+    return raw ? (JSON.parse(raw) as StudentProfile) : null;
+  } catch {
+    return null;
+  }
+}
+
+function readPin(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem(PIN_KEY);
+}
+
+function emit() {
+  window.dispatchEvent(new Event("pylab-session"));
+}
+
+function useIsClient() {
+  return useSyncExternalStore(
+    () => () => undefined,
+    () => true,
+    () => false
+  );
+}
+
+export function SessionProvider({ children }: { children: ReactNode }) {
+  const student = useSyncExternalStore(subscribe, readStudent, () => null);
+  const instructorPin = useSyncExternalStore(subscribe, readPin, () => null);
+  const ready = useIsClient();
 
   const setStudent = (s: StudentProfile | null) => {
-    setStudentState(s);
     if (s) localStorage.setItem(KEY, JSON.stringify(s));
     else localStorage.removeItem(KEY);
+    emit();
   };
 
   const setInstructorPin = (pin: string | null) => {
-    setPinState(pin);
     if (pin) localStorage.setItem(PIN_KEY, pin);
     else localStorage.removeItem(PIN_KEY);
+    emit();
   };
 
   return (

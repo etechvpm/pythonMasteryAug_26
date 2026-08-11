@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, useSearchParams } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { AssessmentRunner } from "@/components/AssessmentRunner";
 import type { Assessment, Attempt } from "@/lib/types";
 import { Loader2 } from "lucide-react";
@@ -10,16 +10,16 @@ import { Suspense } from "react";
 function AssessInner() {
   const params = useParams<{ id: string }>();
   const search = useSearchParams();
+  const router = useRouter();
   const attemptId = search.get("attempt");
   const [assessment, setAssessment] = useState<Assessment | null>(null);
   const [attempt, setAttempt] = useState<Attempt | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const missing = !params.id || !attemptId;
+
   useEffect(() => {
-    if (!params.id || !attemptId) {
-      setError("Missing assessment or attempt.");
-      return;
-    }
+    if (missing) return;
     let cancelled = false;
     (async () => {
       try {
@@ -32,7 +32,7 @@ function AssessInner() {
         if (!aRes.ok) throw new Error(aData.error || "Assessment missing");
         if (!tRes.ok) throw new Error(tData.error || "Attempt missing");
         if (tData.attempt.status === "submitted") {
-          window.location.href = `/results/${attemptId}`;
+          router.replace(`/results/${attemptId}`);
           return;
         }
         if (!cancelled) {
@@ -46,7 +46,15 @@ function AssessInner() {
     return () => {
       cancelled = true;
     };
-  }, [params.id, attemptId]);
+  }, [params.id, attemptId, missing, router]);
+
+  if (missing) {
+    return (
+      <div className="flex flex-1 items-center justify-center p-8 text-rose-300">
+        Missing assessment or attempt.
+      </div>
+    );
+  }
 
   if (error) {
     return (

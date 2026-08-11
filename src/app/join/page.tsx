@@ -17,19 +17,27 @@ export default function JoinPage() {
   const [catalog, setCatalog] = useState<AssessmentSummary[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [prefilled, setPrefilled] = useState(false);
+
+  if (ready && student && !prefilled) {
+    setName(student.name);
+    setStudentId(student.studentId);
+    setPrefilled(true);
+  }
 
   useEffect(() => {
-    if (student) {
-      setName(student.name);
-      setStudentId(student.studentId);
-    }
-  }, [student]);
-
-  useEffect(() => {
-    void fetch("/api/assessments")
-      .then((r) => r.json())
-      .then((d) => setCatalog(d.assessments ?? []))
-      .catch(() => undefined);
+    let cancelled = false;
+    queueMicrotask(() => {
+      void fetch("/api/assessments")
+        .then((r) => r.json())
+        .then((d) => {
+          if (!cancelled) setCatalog(d.assessments ?? []);
+        })
+        .catch(() => undefined);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const onSubmit = async (e: FormEvent) => {

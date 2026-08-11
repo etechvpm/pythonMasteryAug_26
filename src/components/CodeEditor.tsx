@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef } from "react";
 
 type Props = {
   value: string;
@@ -19,12 +19,7 @@ export function CodeEditor({
   label = "Code editor",
 }: Props) {
   const ref = useRef<HTMLTextAreaElement>(null);
-  const [lineCount, setLineCount] = useState(1);
-
-  useEffect(() => {
-    setLineCount(Math.max(1, value.split("\n").length));
-  }, [value]);
-
+  const lineCount = useMemo(() => Math.max(1, value.split("\n").length), [value]);
   const lines = useMemo(
     () => Array.from({ length: Math.max(lineCount, minRows) }, (_, i) => i + 1),
     [lineCount, minRows]

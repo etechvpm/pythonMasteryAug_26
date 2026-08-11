@@ -93,15 +93,18 @@ export function sanitizeAssessmentForStudent(assessment: Assessment): Assessment
     ...assessment,
     questions: assessment.questions.map((q) => {
       if (q.type === "mcq") {
-        const { correctOptionId: _c, explanation: _e, ...rest } = q;
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { correctOptionId, explanation, ...rest } = q;
         return rest as typeof q;
       }
       if (q.type === "debug") {
-        const { correctCode: _c, acceptContains: _a, explanation: _e, ...rest } = q;
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { correctCode, acceptContains, explanation, ...rest } = q;
         return rest as typeof q;
       }
       if (q.type === "coding") {
-        const { explanation: _e, ...rest } = q;
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { explanation, ...rest } = q;
         return {
           ...rest,
           testCases: q.testCases.map((t) =>

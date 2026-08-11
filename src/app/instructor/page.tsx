@@ -39,23 +39,36 @@ export default function InstructorPage() {
   };
 
   useEffect(() => {
-    if (ready && instructorPin) {
+    if (!ready || !instructorPin) return;
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (cancelled) return;
       void loadDashboard(instructorPin);
-    }
+    });
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, instructorPin]);
 
   useEffect(() => {
     if (!instructorPin || !selectedId) return;
-    void fetch(`/api/instructor?assessmentId=${selectedId}`, {
-      headers: { "x-instructor-pin": instructorPin },
-    })
-      .then((r) => r.json())
-      .then((d) => {
-        setAttempts(d.attempts ?? []);
-        setDetailStats(d.stats ?? null);
+    let cancelled = false;
+    queueMicrotask(() => {
+      void fetch(`/api/instructor?assessmentId=${selectedId}`, {
+        headers: { "x-instructor-pin": instructorPin },
       })
-      .catch(() => undefined);
+        .then((r) => r.json())
+        .then((d) => {
+          if (cancelled) return;
+          setAttempts(d.attempts ?? []);
+          setDetailStats(d.stats ?? null);
+        })
+        .catch(() => undefined);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [instructorPin, selectedId]);
 
   const onLogin = async (e: FormEvent) => {

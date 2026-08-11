@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import type { AnswerPayload, Assessment, Attempt, Question } from "@/lib/types";
@@ -32,6 +32,7 @@ export function AssessmentRunner({ assessment, attempt }: Props) {
   const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const autoSubmitted = useRef(false);
 
   const durationSec = assessment.durationMinutes * 60;
   const started = useMemo(() => new Date(attempt.startedAt).getTime(), [attempt.startedAt]);
@@ -90,11 +91,13 @@ export function AssessmentRunner({ assessment, attempt }: Props) {
   }, [durationSec, started]);
 
   useEffect(() => {
-    if (remaining === 0 && !submitting) {
+    if (remaining > 0 || autoSubmitted.current) return;
+    autoSubmitted.current = true;
+    queueMicrotask(() => {
       setSubmitting(true);
       void persist(true).finally(() => setSubmitting(false));
-    }
-  }, [remaining, submitting, persist]);
+    });
+  }, [remaining, persist]);
 
   useEffect(() => {
     const id = window.setInterval(() => {
