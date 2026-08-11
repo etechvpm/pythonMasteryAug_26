@@ -20,8 +20,8 @@ export default function HomePage() {
             <span className="text-teal-300">Mastery</span>
           </p>
           <h1 className="max-w-xl text-lg leading-relaxed text-slate-300 sm:text-xl">
-            Concept checks for your college cohort — quizzes, bug hunts, and live coding tests that
-            feel like a real lab, on any phone.
+            Fully online concept checks — you write the questions, students join from home with a
+            link. Quizzes, bug hunts, and coding tests on any phone.
           </h1>
           <div className="mt-8 flex flex-wrap gap-3">
             <Link

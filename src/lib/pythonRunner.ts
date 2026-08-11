@@ -17,7 +17,7 @@ function normalizeOutput(value: string) {
   return value.replace(/\r\n/g, "\n").trim();
 }
 
-async function runPython(
+async function runPythonLocal(
   source: string,
   timeoutMs = 2500
 ): Promise<{ stdout: string; stderr: string; code: number | null }> {
@@ -64,6 +64,9 @@ async function runPython(
       child.on("close", (code: number | null) => {
         finish({ stdout, stderr, code });
       });
+      child.on("error", () => {
+        finish({ stdout, stderr: stderr || "python3 unavailable", code: 127 });
+      });
     });
   } finally {
     try {
@@ -71,6 +74,65 @@ async function runPython(
     } catch {
       /* ignore */
     }
+  }
+}
+
+/** Free Wandbox API — works on Vercel/serverless (no local Python needed). */
+async function runPythonWandbox(
+  source: string
+): Promise<{ stdout: string; stderr: string; code: number | null }> {
+  const endpoint = process.env.WANDBOX_URL || "https://wandbox.org/api/compile.json";
+  const compiler = process.env.WANDBOX_COMPILER || "cpython-3.12.7";
+  const res = await fetch(endpoint, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      code: source,
+      compiler,
+      options: "",
+    }),
+  });
+  if (!res.ok) {
+    return { stdout: "", stderr: `Code runner unavailable (${res.status})`, code: 1 };
+  }
+  const data = (await res.json()) as {
+    status?: string;
+    signal?: string;
+    program_output?: string;
+    program_error?: string;
+    compiler_error?: string;
+  };
+  if (data.signal) {
+    return {
+      stdout: data.program_output || "",
+      stderr: data.program_error || "Time limit exceeded",
+      code: null,
+    };
+  }
+  const statusCode = data.status === "" || data.status == null ? 0 : Number(data.status);
+  return {
+    stdout: data.program_output || "",
+    stderr: data.program_error || data.compiler_error || "",
+    code: Number.isFinite(statusCode) ? statusCode : 1,
+  };
+}
+
+async function runPython(
+  source: string,
+  timeoutMs = 2500
+): Promise<{ stdout: string; stderr: string; code: number | null }> {
+  // Prefer free online runner in cloud; local python for laptop/dev.
+  if (process.env.DATABASE_URL || process.env.FORCE_ONLINE_RUNNER === "1" || process.env.FORCE_PISTON === "1") {
+    return runPythonWandbox(source);
+  }
+  try {
+    const local = await runPythonLocal(source, timeoutMs);
+    if (local.code === 127 || /unavailable/i.test(local.stderr)) {
+      return runPythonWandbox(source);
+    }
+    return local;
+  } catch {
+    return runPythonWandbox(source);
   }
 }
 

@@ -4,7 +4,18 @@ import { useEffect, useState, type FormEvent } from "react";
 import { motion } from "framer-motion";
 import { useSession } from "@/components/SessionProvider";
 import type { AssessmentSummary, Attempt, InstructorStats } from "@/lib/types";
-import { Loader2, Lock, LogOut, ToggleLeft, ToggleRight, Users } from "lucide-react";
+import {
+  Copy,
+  Loader2,
+  Lock,
+  LogOut,
+  Pencil,
+  Plus,
+  ToggleLeft,
+  ToggleRight,
+  Trash2,
+  Users,
+} from "lucide-react";
 import Link from "next/link";
 
 export default function InstructorPage() {
@@ -109,6 +120,28 @@ export default function InstructorPage() {
     }
   };
 
+  const deleteAssessment = async (id: string, title: string) => {
+    if (!instructorPin) return;
+    if (!window.confirm(`Delete “${title}”? This cannot be undone.`)) return;
+    const res = await fetch("/api/instructor", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-instructor-pin": instructorPin,
+      },
+      body: JSON.stringify({ action: "delete", assessment: { id } }),
+    });
+    if (res.ok) {
+      setAssessments((prev) => prev.filter((a) => a.id !== id));
+      if (selectedId === id) setSelectedId(null);
+    }
+  };
+
+  const copyShareLink = async (code: string) => {
+    const url = `${window.location.origin}/join?code=${encodeURIComponent(code)}`;
+    await navigator.clipboard.writeText(url);
+  };
+
   if (!ready) {
     return (
       <div className="flex flex-1 items-center justify-center p-8 text-slate-400">
@@ -164,16 +197,27 @@ export default function InstructorPage() {
           <h1 className="font-[family-name:var(--font-display)] text-3xl text-white">
             Class desk
           </h1>
-          <p className="mt-1 text-slate-400">Live view for concept checks across your cohort.</p>
+          <p className="mt-1 text-slate-400">
+            Create your own questions, then share a link — students join from anywhere.
+          </p>
         </div>
-        <button
-          type="button"
-          onClick={() => setInstructorPin(null)}
-          className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-slate-300 ring-1 ring-white/10"
-        >
-          <LogOut className="h-4 w-4" />
-          Lock
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href="/instructor/assessments/new"
+            className="inline-flex items-center gap-2 rounded-xl bg-teal-400 px-4 py-2 text-sm font-semibold text-slate-950"
+          >
+            <Plus className="h-4 w-4" />
+            New assessment
+          </Link>
+          <button
+            type="button"
+            onClick={() => setInstructorPin(null)}
+            className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-slate-300 ring-1 ring-white/10"
+          >
+            <LogOut className="h-4 w-4" />
+            Lock
+          </button>
+        </div>
       </div>
 
       <div className="mt-8 grid gap-3 sm:grid-cols-3">
@@ -198,6 +242,15 @@ export default function InstructorPage() {
         <section>
           <h2 className="font-[family-name:var(--font-display)] text-xl text-white">Assessments</h2>
           <ul className="mt-4 space-y-3">
+            {assessments.length === 0 ? (
+              <li className="rounded-2xl border border-dashed border-white/15 px-4 py-8 text-center text-sm text-slate-500">
+                No assessments yet.{" "}
+                <Link href="/instructor/assessments/new" className="text-teal-300">
+                  Create your first one
+                </Link>
+                .
+              </li>
+            ) : null}
             {assessments.map((a) => (
               <li
                 key={a.id}
@@ -224,18 +277,43 @@ export default function InstructorPage() {
                     </div>
                   </div>
                 </button>
-                <button
-                  type="button"
-                  onClick={() => toggleStatus(a.id)}
-                  className="mt-3 inline-flex items-center gap-2 text-xs text-slate-300"
-                >
-                  {a.status === "published" ? (
-                    <ToggleRight className="h-4 w-4 text-teal-300" />
-                  ) : (
-                    <ToggleLeft className="h-4 w-4" />
-                  )}
-                  {a.status === "published" ? "Close for students" : "Publish"}
-                </button>
+                <div className="mt-3 flex flex-wrap gap-3">
+                  <Link
+                    href={`/instructor/assessments/${a.id}`}
+                    className="inline-flex items-center gap-1.5 text-xs text-teal-300"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                    Edit questions
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => copyShareLink(a.accessCode)}
+                    className="inline-flex items-center gap-1.5 text-xs text-slate-300"
+                  >
+                    <Copy className="h-3.5 w-3.5" />
+                    Copy student link
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => toggleStatus(a.id)}
+                    className="inline-flex items-center gap-1.5 text-xs text-slate-300"
+                  >
+                    {a.status === "published" ? (
+                      <ToggleRight className="h-4 w-4 text-teal-300" />
+                    ) : (
+                      <ToggleLeft className="h-4 w-4" />
+                    )}
+                    {a.status === "published" ? "Close" : "Publish"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => deleteAssessment(a.id, a.title)}
+                    className="inline-flex items-center gap-1.5 text-xs text-rose-300"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    Delete
+                  </button>
+                </div>
               </li>
             ))}
           </ul>

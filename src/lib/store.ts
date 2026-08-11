@@ -1,3 +1,4 @@
+import { neon, type NeonQueryFunction } from "@neondatabase/serverless";
 import { promises as fs } from "fs";
 import path from "path";
 import type { Assessment, Attempt } from "./types";
@@ -6,6 +7,45 @@ import { seedAssessments } from "./seed";
 const DATA_DIR = path.join(process.cwd(), "data");
 const ASSESSMENTS_FILE = path.join(DATA_DIR, "assessments.json");
 const ATTEMPTS_FILE = path.join(DATA_DIR, "attempts.json");
+
+type Sql = NeonQueryFunction<false, false>;
+
+function getSql(): Sql | null {
+  const url = process.env.DATABASE_URL;
+  if (!url) return null;
+  return neon(url);
+}
+
+let schemaReady: Promise<void> | null = null;
+
+async function ensureDbSchema(sql: Sql) {
+  if (!schemaReady) {
+    schemaReady = (async () => {
+      await sql`
+        CREATE TABLE IF NOT EXISTS app_data (
+          id TEXT PRIMARY KEY,
+          payload JSONB NOT NULL,
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+      `;
+      const rows = await sql`SELECT id FROM app_data WHERE id = 'assessments'`;
+      if (rows.length === 0) {
+        await sql`
+          INSERT INTO app_data (id, payload)
+          VALUES ('assessments', ${JSON.stringify(seedAssessments)}::jsonb)
+        `;
+      }
+      const attemptRows = await sql`SELECT id FROM app_data WHERE id = 'attempts'`;
+      if (attemptRows.length === 0) {
+        await sql`
+          INSERT INTO app_data (id, payload)
+          VALUES ('attempts', '[]'::jsonb)
+        `;
+      }
+    })();
+  }
+  await schemaReady;
+}
 
 async function ensureDataFiles() {
   await fs.mkdir(DATA_DIR, { recursive: true });
@@ -21,15 +61,43 @@ async function ensureDataFiles() {
   }
 }
 
-export async function readAssessments(): Promise<Assessment[]> {
+async function readJsonDoc<T>(id: "assessments" | "attempts", fallback: T): Promise<T> {
+  const sql = getSql();
+  if (sql) {
+    await ensureDbSchema(sql);
+    const rows = await sql`SELECT payload FROM app_data WHERE id = ${id}`;
+    if (!rows[0]) return fallback;
+    return rows[0].payload as T;
+  }
   await ensureDataFiles();
-  const raw = await fs.readFile(ASSESSMENTS_FILE, "utf8");
-  return JSON.parse(raw) as Assessment[];
+  const file = id === "assessments" ? ASSESSMENTS_FILE : ATTEMPTS_FILE;
+  const raw = await fs.readFile(file, "utf8");
+  return JSON.parse(raw) as T;
+}
+
+async function writeJsonDoc(id: "assessments" | "attempts", payload: unknown) {
+  const sql = getSql();
+  if (sql) {
+    await ensureDbSchema(sql);
+    await sql`
+      INSERT INTO app_data (id, payload, updated_at)
+      VALUES (${id}, ${JSON.stringify(payload)}::jsonb, NOW())
+      ON CONFLICT (id)
+      DO UPDATE SET payload = EXCLUDED.payload, updated_at = NOW()
+    `;
+    return;
+  }
+  await ensureDataFiles();
+  const file = id === "assessments" ? ASSESSMENTS_FILE : ATTEMPTS_FILE;
+  await fs.writeFile(file, JSON.stringify(payload, null, 2), "utf8");
+}
+
+export async function readAssessments(): Promise<Assessment[]> {
+  return readJsonDoc<Assessment[]>("assessments", seedAssessments);
 }
 
 export async function writeAssessments(assessments: Assessment[]) {
-  await ensureDataFiles();
-  await fs.writeFile(ASSESSMENTS_FILE, JSON.stringify(assessments, null, 2), "utf8");
+  await writeJsonDoc("assessments", assessments);
 }
 
 export async function getAssessment(id: string) {
@@ -47,14 +115,11 @@ export async function getAssessmentByCode(code: string) {
 }
 
 export async function readAttempts(): Promise<Attempt[]> {
-  await ensureDataFiles();
-  const raw = await fs.readFile(ATTEMPTS_FILE, "utf8");
-  return JSON.parse(raw) as Attempt[];
+  return readJsonDoc<Attempt[]>("attempts", []);
 }
 
 export async function writeAttempts(attempts: Attempt[]) {
-  await ensureDataFiles();
-  await fs.writeFile(ATTEMPTS_FILE, JSON.stringify(attempts, null, 2), "utf8");
+  await writeJsonDoc("attempts", attempts);
 }
 
 export async function getAttempt(id: string) {
@@ -115,4 +180,8 @@ export function sanitizeAssessmentForStudent(assessment: Assessment): Assessment
       return q;
     }),
   };
+}
+
+export function usesCloudDatabase() {
+  return Boolean(process.env.DATABASE_URL);
 }
