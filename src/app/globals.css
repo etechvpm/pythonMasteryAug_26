@@ -1,0 +1,54 @@
+@import "tailwindcss";
+
+:root {
+  --ink: #07131a;
+  --ink-soft: #0c1c26;
+  --panel: rgba(255, 255, 255, 0.035);
+  --teal: #2dd4bf;
+  --sand: #f0e6d2;
+  --background: #07131a;
+  --foreground: #e8eef2;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-body);
+  --font-mono: var(--font-code);
+  --font-display: var(--font-display);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-body), system-ui, sans-serif;
+  min-height: 100%;
+}
+
+.ambient {
+  background:
+    radial-gradient(1200px 600px at 10% -10%, rgba(45, 212, 191, 0.18), transparent 55%),
+    radial-gradient(900px 500px at 90% 0%, rgba(56, 189, 248, 0.12), transparent 50%),
+    radial-gradient(700px 400px at 50% 100%, rgba(14, 116, 144, 0.18), transparent 55%),
+    linear-gradient(180deg, #07131a 0%, #0a1922 45%, #07131a 100%);
+}
+
+.grid-overlay {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(ellipse at center, black 20%, transparent 75%);
+}
+
+.brand-glow {
+  text-shadow: 0 0 40px rgba(45, 212, 191, 0.25);
+}
